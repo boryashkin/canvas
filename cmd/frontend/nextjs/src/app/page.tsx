@@ -4,16 +4,16 @@ export default function Home() {
   return (
     <main className="bg-red-50 h-full p-6">
       <img src="/favicon-32x32.png" />
-      <h1 className="text-lg mb-6">Холст для рисования с друзьями (alpha)</h1>
+      <h1 className="text-lg mb-6">The canvas for sketching with friends (alpha)</h1>
       <ul className="mb-6">
-        <li>Играйте в крестики-нолики</li>
-        <li>Рисуйте один или совместно</li>
-        <li>Набрасывайте проекты</li>
+        <li>Play tic-tac-toe</li>
+        <li>Draw alone or with friends</li>
+        <li>Doodle something</li>
       </ul>
       
-      <a href={"/canvas/" + randCanvas} className="mt-4 p-4 rounded-sm bg-blue-300 text-white">Открыть новый холст</a>
+      <a href={"/canvas/" + randCanvas} className="mt-4 p-4 rounded-sm bg-blue-300 text-white">Open a new canvas</a>
       <br/>
-      <i className="block mt-6 text-xs">* Для совместного доступа, отправьте ссылку на него друзьям</i>
+      <i className="block mt-6 text-xs">* Share a link to a canvas with friends</i>
       <br/>
       <br/>
       <br/>

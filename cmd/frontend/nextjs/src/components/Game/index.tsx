@@ -300,7 +300,7 @@ export const Game = (props: {gameId: string, websocketProto: string, websocketPo
 
     return (<div className="bg-red-50 w-screen h-screen overflow-hidden fixed">
         <div style={{display: wsState == 1 ? "none" : "block"}} className="fixed top-0 left-0 bg-blue-300 text-white z-50">
-            {wsState != -1 ? "Начните рисовать..." : "Ошибка подключения"}<br/><i>{wsState != -1 ? "После загрузки" : "Перезагрузите страницу"}</i></div>
+            {wsState != -1 ? "Start drawing..." : "Connection error"}<br/><i>{wsState != -1 ? "After loading" : "Refresh the page"}</i></div>
         <div className="fixed bottom-0 left-0 flex z-50">
             <button className="p-2 mr-2 bg-blue-300 text-white relative " onClick={() => {changeZoom(true); console.log(currentZoom)}}>+</button>
             <ZoomBlock zoom={zoom} />
