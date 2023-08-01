@@ -1,0 +1,14 @@
+services:
+  frontend:
+    image: ghcr.io/boryashkin/canvas-frontend:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - WEBSOCKET_PROTOCOL=ws
+      - WEBSOCKET_PORT=8080
+  webserver:
+    image: ghcr.io/boryashkin/canvas-webserver:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - WEBSOCKET_PORT=8080
