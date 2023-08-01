@@ -215,7 +215,7 @@ export const Game = (props: {gameId: string, websocketProto: string, websocketPo
 
 
         let wsHost = props.websocketProto + "://" + window.location.host.split(":")[0] + ":" + props.websocketPort
-        ws = new WebSocket(wsHost + "/canvas/" + props.gameId)
+        ws = new WebSocket(wsHost + "/ws/canvas/" + props.gameId)
         ws.addEventListener("open", (event) => {
             ws.send("Hello Server!");
             setWsState(1)

@@ -129,7 +129,7 @@ func startWebServer(ctx context.Context, wsPort int, logger *slog.Logger) {
 	allChans := NewConnectionCommunicationHolder()
 	var globalCounter atomic.Uint32
 	globalCounter.Store(0)
-	rxp, _ := regexp.Compile("^/?canvas/([a-zA-Z0-9]{4,20})/?$")
+	rxp, _ := regexp.Compile("^/?ws/canvas/([a-zA-Z0-9]{4,20})/?$")
 	go func() {
 		logger.Debug("loop commonBus")
 		for v := range commonBus {
