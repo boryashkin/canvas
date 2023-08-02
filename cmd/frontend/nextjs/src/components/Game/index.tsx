@@ -309,6 +309,15 @@ export const Game = (props: {gameId: string, websocketProto: string, websocketPo
             <button className="p-2 mr-2 bg-blue-300 text-white relative" onClick={() => {leftOffset-=offsetStep; renderedCoordsCounter--; console.log("left", leftOffset)}}>⬅️</button>
             <button className="p-2 mr-2 bg-blue-300 text-white relative" onClick={() => {topOffset+=offsetStep; renderedCoordsCounter--; console.log("top", topOffset)}}>⬇️</button>
             <button className="p-2 mr-2 bg-blue-300 text-white relative" onClick={() => {topOffset-=offsetStep; renderedCoordsCounter--; console.log("top", topOffset)}}>⬆️</button>
+            <a id="download-link" style={{display: wsState == 0 ? "none" :"inherit"}}className="p-2 mr-2 bg-blue-300 text-white relative" onClick={() => {
+                let link = document.getElementById('download-link');
+                let canvas = document.getElementById("my-canvas") as HTMLCanvasElement;
+                if (!link) {
+                    return
+                }
+                link.setAttribute('download', 'canvas.borisd.ru.image.png');
+                link.setAttribute('href', canvas.toDataURL("image/png").replace("image/png", "image/octet-stream"));            
+            }}>Save an image</a>
         </div>
         <canvas
             width={100} height={100}
