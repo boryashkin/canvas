@@ -10,81 +10,14 @@ import (
 	"regexp"
 	"runtime/debug"
 	"sync"
-	"sync/atomic"
 
 	env "github.com/Netflix/go-env"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"golang.org/x/exp/slog"
+
+	"github.com/boryashkin/canvas/internal/pubsub"
 )
-
-const MaxUint16 = uint32(^uint16(0))
-
-type ConnectionSubscriptions struct {
-	sync.Mutex                     // todo profile and compare with sync.Map
-	subs         map[uint32]string // todo profile and compare with sync.Map
-	topics       map[string]uint16
-	topicCounter uint16
-}
-
-func NewConnectionSubscriptions() *ConnectionSubscriptions {
-	cs := &ConnectionSubscriptions{}
-	cs.subs = make(map[uint32]string, 32)
-	cs.topics = make(map[string]uint16, 32)
-	cs.topicCounter = 0
-
-	return cs
-}
-func (cs *ConnectionSubscriptions) Subscribe(connectionID uint32, topic string) {
-	cs.Lock()
-	defer cs.Unlock()
-	cs.subs[connectionID] = topic
-}
-func (cs *ConnectionSubscriptions) Unsubscribe(connectionID uint32, topic string) {
-	cs.Lock()
-	defer cs.Unlock()
-	delete(cs.subs, connectionID)
-}
-func (cs *ConnectionSubscriptions) GetTopic(connectionID uint32) string {
-	cs.Lock()
-	defer cs.Unlock()
-	return cs.subs[connectionID]
-}
-
-type ConnectionCommunicationHolder struct {
-	sync.Mutex                        // todo profile and compare with sync.Map
-	allChans   map[uint32]chan uint64 // todo profile and compare with sync.Map
-}
-
-func NewConnectionCommunicationHolder() *ConnectionCommunicationHolder {
-	allCh := make(map[uint32]chan uint64, 32)
-	return &ConnectionCommunicationHolder{
-		allChans: allCh,
-	}
-}
-func (cch *ConnectionCommunicationHolder) GetChan(connectionID uint32) (ch chan uint64, ok bool) {
-	cch.Lock()
-	defer cch.Unlock()
-
-	ch, ok = cch.allChans[connectionID]
-	return ch, ok
-}
-func (cch *ConnectionCommunicationHolder) SetChan(connectionID uint32, ch chan uint64) {
-	cch.Lock()
-	defer cch.Unlock()
-
-	cch.allChans[connectionID] = ch
-}
-func (cch *ConnectionCommunicationHolder) DeleteAndCloseChan(connectionID uint32) {
-	cch.Lock()
-	defer cch.Unlock()
-
-	ch, ok := cch.allChans[connectionID]
-	if ok {
-		delete(cch.allChans, connectionID)
-		close(ch)
-	}
-}
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -124,25 +57,12 @@ func main() {
 }
 
 func startWebServer(ctx context.Context, wsPort int, logger *slog.Logger) {
-	gSubs := NewConnectionSubscriptions()
-	commonBus := make(chan uint64)
-	allChans := NewConnectionCommunicationHolder()
-	var globalCounter atomic.Uint32
-	globalCounter.Store(0)
+	gSubs := pubsub.NewConnectionSubscriptionsMap()
 	rxp, _ := regexp.Compile("^/?ws/canvas/([a-zA-Z0-9]{4,20})/?$")
+
 	go func() {
 		logger.Debug("loop commonBus")
-		for v := range commonBus {
-			for i := uint32(0); i <= globalCounter.Load(); i++ {
-				if gSubs.GetTopic(i) == "" {
-					continue
-				}
-				ch, ok := allChans.GetChan(i)
-				if ok && ch != nil {
-					ch <- v
-				}
-			}
-		}
+		gSubs.RunNotificationLoop(ctx)
 		logger.Debug("[END] loop commonBus")
 	}()
 	s := http.Server{Addr: fmt.Sprintf(":%d", wsPort), Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -162,20 +82,16 @@ func startWebServer(ctx context.Context, wsPort int, logger *slog.Logger) {
 			return
 		}
 		logger.Debug("[wh proto]", slog.StringValue(wh.Protocol))
-		gi := globalCounter.Add(1)
-		gi -= 1
-		if gi > MaxUint16 {
-			logger.Error("[error] max connections exceeded", slog.Any("err", err))
+		gi, myChan, err := gSubs.GetNewConnectionIdAndChan()
+		if err != nil {
+			logger.Error("failed to handle a connection", slog.Any("err", err))
 			conn.Close()
 			return
 		}
-		myChan := make(chan uint64)
-		allChans.SetChan(gi, myChan)
 		gSubs.Subscribe(gi, topic)
 		closeConn := func() {
 			conn.Close()
-			allChans.DeleteAndCloseChan(gi)
-			gSubs.Unsubscribe(gi, topic)
+			gSubs.DeleteConnection(gi)
 			logger.Debug("closed chan gi", slog.Uint64("gi", uint64(gi)))
 		}
 		go func() {
@@ -183,6 +99,7 @@ func startWebServer(ctx context.Context, wsPort int, logger *slog.Logger) {
 			logger.Debug("[serving] listening")
 			i := 0
 			kb := 0
+
 			for {
 				msg, op, err := wsutil.ReadClientData(conn)
 				if err != nil {
@@ -213,7 +130,7 @@ func startWebServer(ctx context.Context, wsPort int, logger *slog.Logger) {
 				signedCoords = binary.BigEndian.AppendUint32(signedCoords, receivedCoords)
 				signedCoords = binary.BigEndian.AppendUint16(signedCoords, uint16(0))
 
-				commonBus <- binary.BigEndian.Uint64(signedCoords)
+				gSubs.Publish(topic, binary.BigEndian.Uint64(signedCoords))
 			}
 		}()
 		go func() {
